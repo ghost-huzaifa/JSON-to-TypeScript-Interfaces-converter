@@ -3,57 +3,35 @@ import { sampleJson } from "./sample";
 
 export class modelGenerator {
     public modelFileString: string;
+    private interfaces: { [key: string]: string } = {};
 
     constructor(jsonFile: any) {
         this.modelFileString = ''
         this.makeModelFile(jsonFile)
     }
 
-    makeModelFile(jsonFile: any) {
-        this.appendModelHeader('GenModel')
-        this.makeModelFileString(jsonFile);
-        this.appendModelFooter({ isTerminating: true });
+    private makeModelFile(jsonFile: any) {
+        this.generateInterface('GenModel', jsonFile);
+        this.modelFileString = Object.values(this.interfaces).join('\n');
         this.writeToModelFile();
     }
 
-    appendModelHeader(modelName: string) {
-        this.modelFileString += `interface ${modelName} `;
-        this.modelFileString += `{ \n`;
-    }
-
-    appendModelFooter(params: { isTerminating: boolean }) {
-        this.modelFileString += `}`;
-        this.modelFileString += params.isTerminating ? '' : ', '
-        this.modelFileString += `\n`;
-    }
-
-    makeModelFileString(jsonFile: any) {
-        for (let key in jsonFile) {
-            this.appendModel(key, jsonFile[key]);
-        };
-    }
-
-    appendModel(key: string, value: string) {
-        if (value === null) {
-            this.modelFileString += (key + `: any , \n`);
-            return;
-        }
-
-        const typeofField = typeof value;
-        switch (typeofField) {
-            case 'object':
+    private generateInterface(modelName: string, data: any) {
+        let str = `interface ${modelName} {\n`;
+        for (let key in data) {
+            let value = data[key];
+            if (value !== null && typeof value === 'object') {
                 const isArray = Array.isArray(value);
-                if (isArray)
-                    value = value[0];
-
-                this.modelFileString += key + `: {\n`;
-                this.makeModelFileString(value);
-                this.appendModelFooter({ isTerminating: !isArray });
-                break;
-
-            default:
-                this.modelFileString += (key + ": " + typeofField + `, \n`);
+                const subModelName = key;
+                this.generateInterface(subModelName, isArray ? value[0] : value);
+                str += `${key}: ${subModelName}${isArray ? '[]' : ''};\n`;
+            }
+            else {
+                str += `${key}: ${value === null ? 'any' : typeof value};\n`;
+            }
         }
+        str += '}\n';
+        this.interfaces[modelName] = str;
     }
 
     writeToModelFile() {
@@ -66,8 +44,8 @@ export class modelGenerator {
 }
 
 function main() {
-    let modelGenInstance = new modelGenerator(sampleJson);
-    console.dir(modelGenInstance.modelFileString, { depth: Infinity });
+    let modelGen = new modelGenerator(sampleJson);
+    console.dir(modelGen.modelFileString, { depth: Infinity });
 }
 
 main();
